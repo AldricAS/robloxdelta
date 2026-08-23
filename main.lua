@@ -1,66 +1,83 @@
--- All-in-One GUI + Fly + Noclip + Speed Controller
--- by Aira X for Delta Mobile
-
 local player = game.Players.LocalPlayer
 local mouse = player:GetMouse()
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local rootPart = character:WaitForChild("HumanoidRootPart")
 
--- ===== STATE =====
+-- Tunggu karakter biar aman
+local char = player.Character or player.CharacterAdded:Wait()
+local humanoid = char:WaitForChild("Humanoid")
+local rootPart = char:WaitForChild("HumanoidRootPart")
+
+-- State
 local flyMode = false
 local noclipMode = false
 local speedMultiplier = 2.0
 local flySpeed = 50
 local baseSpeed = 16
 
--- ===== BODY VELOCITY =====
+-- BodyVelocity
 local bodyVelocity = Instance.new("BodyVelocity")
 bodyVelocity.Name = "FlyVelocity"
 bodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
 bodyVelocity.Velocity = Vector3.new(0, 0, 0)
 bodyVelocity.Parent = rootPart
 
--- ===== FUNGSI TOGGLE =====
+-- Fungsi toggle
 local function toggleFly()
     flyMode = not flyMode
     if flyMode then
         humanoid.PlatformStand = true
         humanoid.AutoRotate = false
         bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        print("[Fly] ON")
     else
         humanoid.PlatformStand = false
         humanoid.AutoRotate = true
         bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        print("[Fly] OFF")
     end
 end
 
 local function toggleNoclip()
     noclipMode = not noclipMode
-    for _, part in pairs(character:GetDescendants()) do
+    for _, part in pairs(char:GetDescendants()) do
         if part:IsA("BasePart") then
             part.CanCollide = not noclipMode
         end
     end
-    print("[Noclip] " .. (noclipMode and "ON" or "OFF"))
 end
 
 local function updateSpeed(value)
     speedMultiplier = math.clamp(value, 0.5, 4.0)
     humanoid.WalkSpeed = baseSpeed * speedMultiplier
-    print("[Speed] " .. tostring(humanoid.WalkSpeed))
 end
 
--- ===== BUAT UI =====
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "DeltaGUI"
-screenGui.Parent = player.PlayerGui
+-- ===== GUI PAKSA =====
+local guiSuccess = false
+local screenGui
 
--- Frame utama
+pcall(function()
+    -- Coba ke PlayerGui dulu
+    screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "DeltaGUI"
+    screenGui.Parent = player.PlayerGui
+    guiSuccess = true
+end)
+
+if not guiSuccess then
+    pcall(function()
+        -- Fallback ke CoreGui
+        screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "DeltaGUI"
+        screenGui.Parent = game:GetService("CoreGui")
+        guiSuccess = true
+    end)
+end
+
+if not guiSuccess then
+    warn("Gagal bikin GUI! Mungkin executor blok.")
+    return
+end
+
+-- Frame
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 200, 0, 300) -- diperbesar dikit biar muat credit
+mainFrame.Size = UDim2.new(0, 200, 0, 300)
 mainFrame.Position = UDim2.new(0, 20, 0.5, -150)
 mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 mainFrame.BackgroundTransparency = 0.15
@@ -80,10 +97,8 @@ mainFrame.InputBegan:Connect(function(input)
     end
 end)
 
-mainFrame.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
-    end
+mainFrame.InputEnded:Connect(function()
+    dragging = false
 end)
 
 game:GetService("RunService").Heartbeat:Connect(function()
@@ -126,6 +141,7 @@ flyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 flyBtn.TextScaled = true
 flyBtn.Font = Enum.Font.GothamBold
 flyBtn.Parent = mainFrame
+flyBtn.MouseButton1Click:Connect(toggleFly)
 
 local flyCorner = Instance.new("UICorner")
 flyCorner.CornerRadius = UDim.new(0, 12)
@@ -142,6 +158,7 @@ noclipBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 noclipBtn.TextScaled = true
 noclipBtn.Font = Enum.Font.GothamBold
 noclipBtn.Parent = mainFrame
+noclipBtn.MouseButton1Click:Connect(toggleNoclip)
 
 local noclipCorner = Instance.new("UICorner")
 noclipCorner.CornerRadius = UDim.new(0, 12)
@@ -205,7 +222,7 @@ statusText.TextScaled = true
 statusText.Font = Enum.Font.Gotham
 statusText.Parent = mainFrame
 
--- ===== CREDIT =====
+-- Credit
 local credit = Instance.new("TextLabel")
 credit.Size = UDim2.new(1, 0, 0, 20)
 credit.Position = UDim2.new(0, 0, 0, 185)
@@ -217,7 +234,7 @@ credit.Font = Enum.Font.Gotham
 credit.TextXAlignment = Enum.TextXAlignment.Center
 credit.Parent = mainFrame
 
--- ===== SLIDER LOGIC =====
+-- Slider logic
 local sliderDragging = false
 local function updateSlider(value)
     local clamped = math.clamp(value, 0, 1)
@@ -252,18 +269,14 @@ game:GetService("RunService").Heartbeat:Connect(function()
     end
 end)
 
--- Tombol click
-flyBtn.MouseButton1Click:Connect(toggleFly)
-noclipBtn.MouseButton1Click:Connect(toggleNoclip)
-
--- ===== FLY MOVEMENT =====
+-- Fly movement
 local userInput = game:GetService("UserInputService")
 game:GetService("RunService").Heartbeat:Connect(function()
     if not flyMode then
         bodyVelocity.Velocity = Vector3.new(0, 0, 0)
         return
     end
-    if not character or not character.Parent then return end
+    if not char or not char.Parent then return end
 
     local moveDirection = Vector3.new()
     if userInput:IsKeyDown(Enum.KeyCode.W) then moveDirection = moveDirection + Vector3.new(0, 0, -1) end
@@ -287,11 +300,11 @@ game:GetService("RunService").Heartbeat:Connect(function()
     end
 end)
 
--- ===== RESET KARAKTER =====
+-- Reset karakter
 player.CharacterAdded:Connect(function(newChar)
-    character = newChar
-    rootPart = character:WaitForChild("HumanoidRootPart")
-    humanoid = character:WaitForChild("Humanoid")
+    char = newChar
+    rootPart = char:WaitForChild("HumanoidRootPart")
+    humanoid = char:WaitForChild("Humanoid")
     bodyVelocity.Parent = rootPart
 
     if flyMode then
@@ -303,7 +316,7 @@ player.CharacterAdded:Connect(function(newChar)
     end
 
     if noclipMode then
-        for _, part in pairs(character:GetDescendants()) do
+        for _, part in pairs(char:GetDescendants()) do
             if part:IsA("BasePart") then
                 part.CanCollide = false
             end
@@ -313,7 +326,7 @@ player.CharacterAdded:Connect(function(newChar)
     humanoid.WalkSpeed = baseSpeed * speedMultiplier
 end)
 
--- Inisialisasi awal
+-- Inisialisasi
 updateSpeed(2.0)
-print("✅ Delta GUI loaded! Tekan F untuk Fly, G untuk Noclip.")
+print("✅ Delta GUI loaded! Klik tombol di layar.")
 print("📝 Created by Rey(AldX)")
